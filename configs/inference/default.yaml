@@ -1,0 +1,15 @@
+# Default inference / server settings
+
+host: "0.0.0.0"
+port: 8000
+backend: cosyvoice  # cosyvoice | mock
+
+# Only one GPU synthesis job at a time (documented limitation for M1)
+max_concurrent_sessions: 1
+
+# WebSocket
+ws_path: /v1/stream
+
+# Audio output format sent to clients
+audio_encoding: pcm_s16le
+chunk_buffer_ms: 120

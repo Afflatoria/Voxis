@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+.env
+
+# Models & data
+pretrained_models/
+third_party/CosyVoice/pretrained_models/
+*.pt
+*.onnx
+*.plan
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# IDE & OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Logs & benchmarks
+*.log
+benchmark_results/
+
+# Test artifacts
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Third party
+third_party/*

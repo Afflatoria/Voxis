@@ -1,0 +1,15 @@
+# CosyVoice 3 model configuration for neural-tts
+
+model_id: FunAudioLLM/Fun-CosyVoice3-0.5B-2512
+local_dir: pretrained_models/Fun-CosyVoice3-0.5B
+sample_rate: 24000
+
+# Default reference audio bundled with CosyVoice
+prompt_wav: third_party/CosyVoice/asset/zero_shot_prompt.wav
+prompt_text: "You are a helpful assistant.<|endofprompt|>希望你以后能够做的比我还好呦。"
+
+# Inference defaults
+stream: true
+fp16: false
+speed_min: 0.5
+speed_max: 2.0

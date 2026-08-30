@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "neural-tts"
+version = "0.1.0"
+description = "Local real-time configurable neural TTS with streaming inference"
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+license = { text = "MIT" }
+authors = [{ name = "Voice Research" }]
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "websockets>=13.0",
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.2.0",
+    "numpy>=1.26.0,<2.0",
+    "soundfile>=0.12.1",
+    "python-dotenv>=1.0.0",
+    "structlog>=24.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "httpx>=0.27.0",
+]
+download = [
+    "huggingface_hub>=0.23.0",
+    "modelscope>=1.20.0",
+]
+cosyvoice = [
+    # CosyVoice is installed from third_party/CosyVoice/requirements.txt
+    # Pin versions compatible with CosyVoice 3 on Windows/Linux.
+    "torch>=2.3.1",
+    "torchaudio>=2.3.1",
+    "modelscope>=1.20.0",
+    "hyperpyyaml>=1.2.2",
+    "onnxruntime>=1.18.0",
+    "inflect>=7.3.1",
+    "wetext>=0.0.4",
+    "transformers>=4.51.3,<4.58",
+    "librosa>=0.10.2",
+    "soundfile>=0.12.1",
+]
+
+[project.scripts]
+neural-tts = "neural_tts.main:cli"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["src"]
