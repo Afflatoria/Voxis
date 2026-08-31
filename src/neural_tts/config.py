@@ -19,29 +19,25 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    backend: Literal["cosyvoice", "mock"] = Field(
-        default="cosyvoice", validation_alias="NEURAL_TTS_BACKEND"
+    backend: Literal["f5tts", "mock"] = Field(
+        default="f5tts", validation_alias="NEURAL_TTS_BACKEND"
     )
     host: str = Field(default="0.0.0.0", validation_alias="NEURAL_TTS_HOST")
     port: int = Field(default=8000, validation_alias="NEURAL_TTS_PORT")
     log_level: str = Field(default="INFO", validation_alias="NEURAL_TTS_LOG_LEVEL")
 
-    cosyvoice_model_dir: Path = Field(
-        default=PROJECT_ROOT / "pretrained_models" / "Fun-CosyVoice3-0.5B",
-        validation_alias="COSYVOICE_MODEL_DIR",
+    f5tts_model: str = Field(default="F5TTS_v1_Base", validation_alias="F5TTS_MODEL")
+    f5tts_ref_wav: Path = Field(
+        default=PROJECT_ROOT / "assets" / "voices" / "reference.wav",
+        validation_alias="F5TTS_REF_WAV",
     )
-    cosyvoice_repo: Path = Field(
-        default=PROJECT_ROOT / "third_party" / "CosyVoice",
-        validation_alias="COSYVOICE_REPO",
+    f5tts_ref_text: str = Field(
+        default="",
+        validation_alias="F5TTS_REF_TEXT",
     )
-    cosyvoice_prompt_wav: Path = Field(
-        default=PROJECT_ROOT / "third_party" / "CosyVoice" / "asset" / "zero_shot_prompt.wav",
-        validation_alias="COSYVOICE_PROMPT_WAV",
-    )
-    cosyvoice_prompt_text: str = Field(
-        default="You are a helpful assistant.<|endofprompt|>希望你以后能够做的比我还好呦。",
-        validation_alias="COSYVOICE_PROMPT_TEXT",
-    )
+    f5tts_nfe_step: int = Field(default=32, validation_alias="F5TTS_NFE_STEP")
+    f5tts_cfg_strength: float = Field(default=2.0, validation_alias="F5TTS_CFG_STRENGTH")
+    f5tts_stream_chunk_size: int = Field(default=2048, validation_alias="F5TTS_STREAM_CHUNK_SIZE")
 
     cors_origins: str = Field(
         default="http://localhost:5173,http://127.0.0.1:5173",

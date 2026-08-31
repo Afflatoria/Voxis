@@ -11,7 +11,7 @@ import numpy as np
 
 from neural_tts.audio.codec import AudioChunk, float32_to_pcm_s16le
 from neural_tts.models.base import BackendInfo, StreamingTTS
-from neural_tts.voice.schema import COSYVOICE_SUPPORTED_CONTROLS, VoiceConfig
+from neural_tts.voice.schema import F5TTS_SUPPORTED_CONTROLS, VoiceConfig
 
 
 class MockBackend(StreamingTTS):
@@ -42,7 +42,7 @@ class MockBackend(StreamingTTS):
             sample_rate=self._sample_rate,
             device="cpu",
             load_time_seconds=self._load_time,
-            supported_controls=COSYVOICE_SUPPORTED_CONTROLS,
+            supported_controls=F5TTS_SUPPORTED_CONTROLS,
             ready=self._ready,
         )
 

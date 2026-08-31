@@ -7,13 +7,10 @@ from typing import Any
 from pydantic import BaseModel, Field, field_validator
 
 
-# Controls that CosyVoice 3 can approximate in M1 via instruct2 + speed.
-COSYVOICE_SUPPORTED_CONTROLS = frozenset(
+# Controls that F5-TTS can approximate in M1 via speed + target_rms.
+F5TTS_SUPPORTED_CONTROLS = frozenset(
     {
-        "language",
         "speaker",
-        "accent",
-        "accent_strength",
         "speaking_rate",
         "energy",
     }
@@ -22,6 +19,9 @@ COSYVOICE_SUPPORTED_CONTROLS = frozenset(
 # Reserved for future custom architecture — not implemented in M1 backend.
 FUTURE_CONTROLS = frozenset(
     {
+        "language",
+        "accent",
+        "accent_strength",
         "pitch",
         "warmth",
         "breathiness",
@@ -65,6 +65,12 @@ class VoiceConfig(BaseModel):
     def unsupported_active_controls(self) -> list[str]:
         """Return future-only controls that differ from neutral defaults."""
         active: list[str] = []
+        if self.language != "English":
+            active.append("language")
+        if self.accent is not None:
+            active.append("accent")
+        if self.accent_strength != 0.0:
+            active.append("accent_strength")
         if self.pitch != 0.0:
             active.append("pitch")
         if self.warmth != 0.0:
@@ -79,6 +85,6 @@ class VoiceConfig(BaseModel):
 
     def to_public_dict(self) -> dict[str, Any]:
         data = self.model_dump()
-        data["_supported_by_backend"] = sorted(COSYVOICE_SUPPORTED_CONTROLS)
+        data["_supported_by_backend"] = sorted(F5TTS_SUPPORTED_CONTROLS)
         data["_unsupported_active"] = self.unsupported_active_controls()
         return data

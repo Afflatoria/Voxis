@@ -25,7 +25,7 @@ from neural_tts.audio.codec import encode_audio_frame
 from neural_tts.logging_config import get_logger
 from neural_tts.streaming.session import StreamingSession
 from neural_tts.streaming.state import SessionStatus
-from neural_tts.voice.schema import COSYVOICE_SUPPORTED_CONTROLS, FUTURE_CONTROLS, VoiceConfig
+from neural_tts.voice.schema import F5TTS_SUPPORTED_CONTROLS, FUTURE_CONTROLS, VoiceConfig
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -56,7 +56,7 @@ async def stream_tts(websocket: WebSocket) -> None:
                 "sample_rate": info.sample_rate,
                 "ready": info.ready,
             },
-            supported_controls=sorted(COSYVOICE_SUPPORTED_CONTROLS),
+            supported_controls=sorted(F5TTS_SUPPORTED_CONTROLS),
             future_controls=sorted(FUTURE_CONTROLS),
         ).model_dump(),
     )

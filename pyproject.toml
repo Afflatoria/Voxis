@@ -30,20 +30,12 @@ dev = [
 ]
 download = [
     "huggingface_hub>=0.23.0",
-    "modelscope>=1.20.0",
 ]
-cosyvoice = [
-    # CosyVoice is installed from third_party/CosyVoice/requirements.txt
-    # Pin versions compatible with CosyVoice 3 on Windows/Linux.
-    "torch>=2.3.1",
-    "torchaudio>=2.3.1",
-    "modelscope>=1.20.0",
-    "hyperpyyaml>=1.2.2",
-    "onnxruntime>=1.18.0",
-    "inflect>=7.3.1",
-    "wetext>=0.0.4",
-    "transformers>=4.51.3,<4.58",
-    "librosa>=0.10.2",
+f5tts = [
+    "f5-tts>=1.1.22",
+    "torch>=2.11.0",
+    "torchaudio>=2.11.0",
+    "torchcodec>=0.12.0",
     "soundfile>=0.12.1",
 ]
 

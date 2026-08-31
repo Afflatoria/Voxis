@@ -8,7 +8,7 @@ import asyncio
 class InferenceScheduler:
     """Serializes GPU-bound synthesis jobs for M1.
 
-    CosyVoice is not designed for efficient multi-session GPU concurrency.
+    GPU inference is serialized to one job at a time in M1.
     M1 allows one active synthesis at a time via a shared asyncio lock.
     """
 

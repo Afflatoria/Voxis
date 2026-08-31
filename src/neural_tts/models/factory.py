@@ -10,6 +10,6 @@ from neural_tts.models.mock import MockBackend
 def create_backend(settings: Settings) -> StreamingTTS:
     if settings.backend == "mock":
         return MockBackend()
-    from neural_tts.models.cosyvoice import CosyVoiceBackend
+    from neural_tts.models.f5tts import F5TTSBackend
 
-    return CosyVoiceBackend(settings)
+    return F5TTSBackend(settings)

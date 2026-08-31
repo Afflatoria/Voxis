@@ -85,7 +85,7 @@ export function mountApp(root: HTMLElement): void {
   metricsBox.textContent = "TTFA: —\nRTF: —";
   const note = el("div", "note");
   note.textContent =
-    "Pitch/warmth/breathiness sliders are reserved for future models. Speaking rate and energy map to CosyVoice instruct/speed in M1.";
+    "Pitch/warmth/breathiness sliders are reserved for future models. Speaking rate and energy map to F5-TTS speed/loudness in M1.";
   statusBox.append(statusLine, metricsBox, note);
   container.appendChild(statusBox);
 

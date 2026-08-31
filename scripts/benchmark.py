@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Benchmark streaming TTS latency (TTFA, RTF) using the mock or CosyVoice backend."""
+"""Benchmark streaming TTS latency (TTFA, RTF) using the mock or F5-TTS backend."""
 
 from __future__ import annotations
 
@@ -128,7 +128,7 @@ def main() -> int:
     parser.add_argument("--text", default=DEFAULT_TEXT)
     parser.add_argument(
         "--backend",
-        choices=["mock", "cosyvoice"],
+        choices=["mock", "f5tts"],
         default=os.environ.get("NEURAL_TTS_BACKEND", "mock"),
     )
     args = parser.parse_args()

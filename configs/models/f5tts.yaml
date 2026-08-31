@@ -1,0 +1,8 @@
+# F5-TTS v1 Base (default backend model)
+
+model: F5TTS_v1_Base
+checkpoint: hf://SWivid/F5-TTS/F5TTS_v1_Base/model_1250000.safetensors
+vocoder: charactr/vocos-mel-24khz
+sample_rate: 24000
+
+# Runtime settings are loaded from .env via src/neural_tts/config.py

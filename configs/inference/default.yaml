@@ -2,7 +2,7 @@
 
 host: "0.0.0.0"
 port: 8000
-backend: cosyvoice  # cosyvoice | mock
+backend: f5tts  # f5tts | mock
 
 # Only one GPU synthesis job at a time (documented limitation for M1)
 max_concurrent_sessions: 1

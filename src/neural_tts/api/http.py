@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 
-from neural_tts.voice.schema import COSYVOICE_SUPPORTED_CONTROLS, FUTURE_CONTROLS
+from neural_tts.voice.schema import F5TTS_SUPPORTED_CONTROLS, FUTURE_CONTROLS
 
 router = APIRouter()
 
@@ -31,13 +31,18 @@ async def health(request: Request):
 @router.get("/v1/capabilities")
 async def capabilities():
     return {
-        "supported_controls": sorted(COSYVOICE_SUPPORTED_CONTROLS),
+        "supported_controls": sorted(F5TTS_SUPPORTED_CONTROLS),
         "future_controls": sorted(FUTURE_CONTROLS),
         "notes": {
-            "pitch": "Reserved for future architecture; not applied by CosyVoice backend in M1.",
-            "warmth": "Reserved for future architecture; not applied by CosyVoice backend in M1.",
-            "breathiness": "Reserved for future architecture; not applied by CosyVoice backend in M1.",
-            "roughness": "Reserved for future architecture; not applied by CosyVoice backend in M1.",
-            "expressiveness": "Reserved for future architecture; not applied by CosyVoice backend in M1.",
+            "speaker": "M1 uses the reference voice from F5TTS_REF_WAV in .env.",
+            "speaking_rate": "Mapped to F5-TTS speed parameter.",
+            "energy": "Mapped to F5-TTS target_rms loudness normalization.",
+            "language": "Reserved for future architecture; not applied by F5-TTS backend in M1.",
+            "accent": "Reserved for future architecture; not applied by F5-TTS backend in M1.",
+            "pitch": "Reserved for future architecture; not applied by F5-TTS backend in M1.",
+            "warmth": "Reserved for future architecture; not applied by F5-TTS backend in M1.",
+            "breathiness": "Reserved for future architecture; not applied by F5-TTS backend in M1.",
+            "roughness": "Reserved for future architecture; not applied by F5-TTS backend in M1.",
+            "expressiveness": "Reserved for future architecture; not applied by F5-TTS backend in M1.",
         },
     }
