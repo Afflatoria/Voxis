@@ -92,6 +92,7 @@ class StreamState:
 
     session_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     current_voice: VoiceConfig = field(default_factory=VoiceConfig)
+    voice_version: int = 0
     sequence_number: int = 0
     cancelled: bool = False
     status: SessionStatus = SessionStatus.IDLE
@@ -116,8 +117,12 @@ class StreamState:
         return seq
 
     def update_voice(self, partial: dict[str, Any]) -> VoiceConfig:
-        """Apply a partial voice update; used now and for future mid-stream updates."""
-        self.current_voice = self.current_voice.merge_update(partial)
+        """Validate and apply a partial voice update."""
+        merged = {**self.current_voice.model_dump(), **partial}
+        updated = VoiceConfig.model_validate(merged)
+        if updated != self.current_voice:
+            self.current_voice = updated
+            self.voice_version += 1
         return self.current_voice
 
     def mark_chunk_sent(self, duration_seconds: float) -> None:

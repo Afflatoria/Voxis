@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Request
 
 from neural_tts.voice.schema import F5TTS_SUPPORTED_CONTROLS, FUTURE_CONTROLS
+from neural_tts.voice.genome import CandidateRequest, VoiceGenome, generate_candidates
 
 router = APIRouter()
 
@@ -46,3 +47,9 @@ async def capabilities():
             "expressiveness": "Reserved for future architecture; not applied by F5-TTS backend in M1.",
         },
     }
+
+
+@router.post("/v1/voice-genomes/candidates", response_model=list[VoiceGenome])
+async def voice_genome_candidates(request: CandidateRequest):
+    """Create reproducible artificial voice candidates for A/B exploration."""
+    return generate_candidates(request)

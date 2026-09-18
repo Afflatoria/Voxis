@@ -83,3 +83,37 @@ def test_websocket_empty_text(mock_client):
         err = _receive_json(ws)
         assert err["type"] == "error"
         assert err["code"] == "empty_text"
+
+
+def test_websocket_accepts_midstream_voice_update(mock_client):
+    with mock_client.websocket_connect("/v1/stream") as ws:
+        ws.receive_text()
+        ws.send_text(
+            json.dumps(
+                {
+                    "type": "start",
+                    "text": "This is a sufficiently long sentence to keep streaming.",
+                }
+            )
+        )
+        assert _receive_json(ws)["type"] == "started"
+
+        ws.send_text(
+            json.dumps(
+                {
+                    "type": "voice_update",
+                    "voice": {"speaking_rate": 1.25, "energy": 0.8},
+                }
+            )
+        )
+
+        for _ in range(20):
+            message = ws.receive()
+            if message.get("text"):
+                event = json.loads(message["text"])
+                if event["type"] == "voice_updated":
+                    assert event["voice_version"] == 1
+                    assert event["voice"]["speaking_rate"] == 1.25
+                    break
+        else:
+            pytest.fail("voice_updated event was not received")

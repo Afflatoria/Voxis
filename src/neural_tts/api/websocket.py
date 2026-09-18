@@ -29,6 +29,7 @@ from neural_tts.voice.schema import F5TTS_SUPPORTED_CONTROLS, FUTURE_CONTROLS, V
 
 logger = get_logger(__name__)
 router = APIRouter()
+MAX_AUDIO_LOOKAHEAD_SECONDS = 0.75
 
 
 async def _send_json(websocket: WebSocket, payload: dict[str, Any]) -> None:
@@ -89,19 +90,32 @@ async def stream_tts(websocket: WebSocket) -> None:
                 pass
         synth_task = None
 
-    async def run_synthesis(text: str, voice: VoiceConfig, request_id: str | None) -> None:
+    async def run_synthesis(text: str, request_id: str | None) -> None:
         nonlocal session
         assert session is not None
+        audio_sent_seconds = 0.0
+        playback_clock_started: float | None = None
+
+        async def send_chunk(chunk, _state) -> None:
+            nonlocal audio_sent_seconds, playback_clock_started
+            if playback_clock_started is not None:
+                elapsed = asyncio.get_running_loop().time() - playback_clock_started
+                ahead = audio_sent_seconds - elapsed
+                if ahead > MAX_AUDIO_LOOKAHEAD_SECONDS:
+                    await asyncio.sleep(ahead - MAX_AUDIO_LOOKAHEAD_SECONDS)
+            await websocket.send_bytes(encode_audio_frame(chunk))
+            if playback_clock_started is None:
+                playback_clock_started = asyncio.get_running_loop().time()
+            audio_sent_seconds += chunk.duration_seconds
+
         try:
-            async for chunk in session.synthesize(
+            async for _chunk in session.synthesize(
                 text=text,
-                voice=voice.model_dump(),
                 request_id=request_id,
+                on_chunk=send_chunk,
             ):
                 if session.state.is_cancelled():
                     break
-                frame = encode_audio_frame(chunk)
-                await websocket.send_bytes(frame)
         except asyncio.CancelledError:
             raise
         except Exception as exc:
@@ -195,12 +209,24 @@ async def stream_tts(websocket: WebSocket) -> None:
                         ).model_dump(),
                     )
                     continue
-                voice = session.update_voice(message.voice)
+                try:
+                    voice = session.update_voice(message.voice)
+                except ValidationError as exc:
+                    await _send_json(
+                        websocket,
+                        ErrorEvent(
+                            session_id=session.state.session_id,
+                            code="invalid_voice_update",
+                            message=str(exc),
+                        ).model_dump(),
+                    )
+                    continue
                 await _send_json(
                     websocket,
                     VoiceUpdatedEvent(
                         session_id=session.state.session_id,
                         voice=voice.to_public_dict(),
+                        voice_version=session.state.voice_version,
                     ).model_dump(),
                 )
                 continue
@@ -225,6 +251,7 @@ async def stream_tts(websocket: WebSocket) -> None:
                 continue
 
             session = StreamingSession(backend, scheduler.gpu_lock)
+            session.update_voice(voice.model_dump())
             await _send_json(
                 websocket,
                 StartedEvent(
@@ -233,7 +260,7 @@ async def stream_tts(websocket: WebSocket) -> None:
                 ).model_dump(),
             )
             synth_task = asyncio.create_task(
-                run_synthesis(message.text, voice, message.request_id)
+                run_synthesis(message.text, message.request_id)
             )
 
     finally:

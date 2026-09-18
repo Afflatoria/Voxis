@@ -1,6 +1,11 @@
 /** Web Audio streaming player with jitter buffering. */
 
 import { decodeAudioFrame, int16ToFloat32 } from "./audioCodec";
+import {
+  NEUTRAL_VOICE_EFFECTS,
+  VoiceOutput,
+  type VoiceEffects,
+} from "./voiceOutput";
 
 export interface PlaybackMetrics {
   requestTime: number | null;
@@ -13,6 +18,8 @@ export interface PlaybackMetrics {
 
 export class StreamPlayer {
   private audioContext: AudioContext | null = null;
+  private voiceOutput: VoiceOutput | null = null;
+  private targetEffects: VoiceEffects = { ...NEUTRAL_VOICE_EFFECTS };
   private nextStartTime = 0;
   private readonly bufferSeconds: number;
   private started = false;
@@ -41,6 +48,7 @@ export class StreamPlayer {
   async ensureContext(): Promise<AudioContext> {
     if (!this.audioContext) {
       this.audioContext = new AudioContext();
+      this.voiceOutput = new VoiceOutput(this.audioContext, this.targetEffects);
     }
     if (this.audioContext.state === "suspended") {
       await this.audioContext.resume();
@@ -49,6 +57,8 @@ export class StreamPlayer {
   }
 
   reset(): void {
+    this.voiceOutput?.disconnect();
+    this.voiceOutput = null;
     if (this.audioContext) {
       void this.audioContext.close();
       this.audioContext = null;
@@ -76,11 +86,13 @@ export class StreamPlayer {
 
     const floats = int16ToFloat32(pcm);
     const audioBuffer = ctx.createBuffer(1, floats.length, sampleRate);
-    audioBuffer.copyToChannel(floats, 0);
+    // Web Audio requires an ArrayBuffer-backed view; decoded data is typed as
+    // ArrayBufferLike by newer TypeScript releases.
+    audioBuffer.copyToChannel(new Float32Array(floats), 0);
 
     const source = ctx.createBufferSource();
     source.buffer = audioBuffer;
-    source.connect(ctx.destination);
+    source.connect(this.voiceOutput!.input);
 
     const now = ctx.currentTime;
     if (!this.started) {
@@ -103,5 +115,14 @@ export class StreamPlayer {
 
   stop(): void {
     this.reset();
+  }
+
+  setEnergy(energy: number): void {
+    this.setVoiceEffects({ energy });
+  }
+
+  setVoiceEffects(effects: Partial<VoiceEffects>): void {
+    this.targetEffects = { ...this.targetEffects, ...effects };
+    this.voiceOutput?.setEffects(effects);
   }
 }

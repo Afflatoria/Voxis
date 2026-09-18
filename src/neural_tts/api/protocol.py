@@ -83,7 +83,8 @@ class ErrorEvent(ServerEvent):
 class VoiceUpdatedEvent(ServerEvent):
     type: Literal["voice_updated"] = "voice_updated"
     voice: dict[str, Any]
-    note: str = "Applied to session state; affects subsequent synthesis in M1."
+    voice_version: int
+    note: str = "Queued for the next unstarted text segment."
 
 
 class PongEvent(ServerEvent):

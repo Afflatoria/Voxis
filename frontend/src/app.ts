@@ -1,4 +1,9 @@
-import { TTSWebSocketClient } from "./wsClient";
+import {
+  FALLBACK_GENOMES,
+  generateVoiceCandidates,
+  type VoiceGenome,
+} from "./voiceGenome";
+import { TTSWebSocketClient, type VoiceSettings } from "./wsClient";
 
 const WS_URL =
   (import.meta as { env?: { VITE_WS_URL?: string } }).env?.VITE_WS_URL ??
@@ -13,87 +18,251 @@ function el<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
-function rangeRow(label: string, min: number, max: number, step: number, value: number) {
-  const wrap = el("div");
-  const lbl = el("label");
-  const valueSpan = el("span", "muted");
-  valueSpan.textContent = value.toFixed(2);
-  lbl.textContent = label + " ";
-  lbl.appendChild(valueSpan);
+function rangeRow(
+  label: string,
+  min: number,
+  max: number,
+  step: number,
+  value: number,
+) {
+  const wrap = el("div", "range-row");
+  const labelNode = el("label");
+  const output = el("output");
+  output.textContent = value.toFixed(2);
+  labelNode.textContent = label;
+  labelNode.appendChild(output);
 
-  const input = document.createElement("input");
+  const input = el("input");
   input.type = "range";
   input.min = String(min);
   input.max = String(max);
   input.step = String(step);
   input.value = String(value);
   input.addEventListener("input", () => {
-    valueSpan.textContent = Number(input.value).toFixed(2);
+    output.textContent = Number(input.value).toFixed(2);
   });
 
-  wrap.appendChild(lbl);
-  wrap.appendChild(input);
-  return { wrap, input };
+  wrap.append(labelNode, input);
+  return { wrap, input, output };
+}
+
+interface ComparisonSlot {
+  name: "A" | "B";
+  genome: VoiceGenome;
+  settings: VoiceSettings;
+  card: HTMLElement;
+  heading: HTMLElement;
+  genomeId: HTMLElement;
+  rate: ReturnType<typeof rangeRow>;
+  energy: ReturnType<typeof rangeRow>;
+  warmth: ReturnType<typeof rangeRow>;
+  brightness: ReturnType<typeof rangeRow>;
+  presence: ReturnType<typeof rangeRow>;
+  generateButton: HTMLButtonElement;
+  metrics: HTMLElement;
+  applyGenome: (genome: VoiceGenome) => void;
+}
+
+function setRangeValue(
+  row: ReturnType<typeof rangeRow>,
+  value: number,
+): void {
+  row.input.value = String(value);
+  row.output.textContent = value.toFixed(2);
+}
+
+function buildSlot(
+  name: "A" | "B",
+  initialGenome: VoiceGenome,
+  onGenerate: () => void,
+  onSave: () => void,
+  onVoiceChange: (slot: ComparisonSlot) => void,
+): ComparisonSlot {
+  const card = el("section", "voice-card");
+  const header = el("div", "voice-card-header");
+  const slotBadge = el("span", `slot-badge slot-${name.toLowerCase()}`);
+  slotBadge.textContent = name;
+  const headingWrap = el("div");
+  const heading = el("h2");
+  heading.textContent = initialGenome.name;
+  const subheading = el("p", "card-subtitle");
+  subheading.textContent = initialGenome.id;
+  headingWrap.append(heading, subheading);
+  header.append(slotBadge, headingWrap);
+
+  const rate = rangeRow(
+    "Speaking rate",
+    0.75,
+    1.3,
+    0.01,
+    initialGenome.speaking_rate,
+  );
+  const energy = rangeRow(
+    "Energy",
+    0.6,
+    1.4,
+    0.01,
+    initialGenome.energy,
+  );
+  const warmth = rangeRow("Warmth", -1, 1, 0.01, initialGenome.warmth);
+  const brightness = rangeRow(
+    "Brightness",
+    -1,
+    1,
+    0.01,
+    initialGenome.brightness,
+  );
+  const presence = rangeRow("Presence", -1, 1, 0.01, initialGenome.presence);
+
+  const generateButton = el("button");
+  generateButton.textContent = `Play voice ${name}`;
+  generateButton.addEventListener("click", onGenerate);
+  const saveButton = el("button", "secondary");
+  saveButton.textContent = "Save identity";
+  saveButton.addEventListener("click", onSave);
+  const actions = el("div", "card-actions");
+  actions.append(generateButton, saveButton);
+  const metrics = el("div", "slot-metrics");
+  metrics.textContent = "Not generated yet";
+
+  const slot: ComparisonSlot = {
+    name,
+    genome: { ...initialGenome },
+    settings: {
+      language: "English",
+      speaker: "default",
+      speaking_rate: initialGenome.speaking_rate,
+      pitch: 0,
+      energy: initialGenome.energy,
+    },
+    card,
+    heading,
+    genomeId: subheading,
+    rate,
+    energy,
+    warmth,
+    brightness,
+    presence,
+    generateButton,
+    metrics,
+    applyGenome: () => undefined,
+  };
+
+  slot.applyGenome = (genome) => {
+    slot.genome = { ...genome };
+    slot.settings.speaking_rate = genome.speaking_rate;
+    slot.settings.energy = genome.energy;
+    heading.textContent = genome.name;
+    subheading.textContent = genome.id;
+    setRangeValue(rate, genome.speaking_rate);
+    setRangeValue(energy, genome.energy);
+    setRangeValue(warmth, genome.warmth);
+    setRangeValue(brightness, genome.brightness);
+    setRangeValue(presence, genome.presence);
+    metrics.textContent = "New candidate · ready to audition";
+    onVoiceChange(slot);
+  };
+
+  const markCustom = () => {
+    slot.genome.name = `Custom ${name}`;
+    heading.textContent = slot.genome.name;
+  };
+  rate.input.addEventListener("input", () => {
+    markCustom();
+    slot.genome.speaking_rate = Number(rate.input.value);
+    slot.settings.speaking_rate = Number(rate.input.value);
+    onVoiceChange(slot);
+  });
+  energy.input.addEventListener("input", () => {
+    markCustom();
+    slot.genome.energy = Number(energy.input.value);
+    slot.settings.energy = Number(energy.input.value);
+    onVoiceChange(slot);
+  });
+  for (const [row, key] of [
+    [warmth, "warmth"],
+    [brightness, "brightness"],
+    [presence, "presence"],
+  ] as const) {
+    row.input.addEventListener("input", () => {
+      markCustom();
+      slot.genome[key] = Number(row.input.value);
+      onVoiceChange(slot);
+    });
+  }
+
+  card.append(
+    header,
+    rate.wrap,
+    energy.wrap,
+    warmth.wrap,
+    brightness.wrap,
+    presence.wrap,
+    actions,
+    metrics,
+  );
+  return slot;
 }
 
 export function mountApp(root: HTMLElement): void {
   root.innerHTML = "";
-  const container = el("div", "container");
+  const container = el("main", "container");
+  const eyebrow = el("div", "eyebrow");
+  eyebrow.textContent = "VOICE GENOME LAB · PHASE 1";
   const title = el("h1");
-  title.textContent = "Neural TTS";
-  container.appendChild(title);
+  title.textContent = "Evolve a voice of your own.";
+  const intro = el("p", "intro");
+  intro.textContent =
+    "Audition two artificial identities, choose a parent, then generate nearby mutations until the voice feels right.";
+  container.append(eyebrow, title, intro);
 
+  const textLabel = el("label", "section-label");
+  textLabel.textContent = "Script";
   const textarea = el("textarea");
   textarea.placeholder = "Enter text...";
   textarea.value =
     "Hello, this is a streaming text-to-speech test. Speech should begin before the full sentence finishes generating.";
-  container.appendChild(textarea);
+  container.append(textLabel, textarea);
 
-  const controls = el("div", "controls");
-  const speakerLabel = el("label");
-  speakerLabel.textContent = "Voice";
-  const speakerSelect = el("select") as HTMLSelectElement;
-  for (const opt of ["default"]) {
-    const o = el("option") as HTMLOptionElement;
-    o.value = opt;
-    o.textContent = opt;
-    speakerSelect.appendChild(o);
-  }
-  controls.appendChild(speakerLabel);
-  controls.appendChild(speakerSelect);
+  const comparisonHeader = el("div", "comparison-header");
+  const comparisonTitle = el("h2");
+  comparisonTitle.textContent = "Candidate generation";
+  const capabilityBadge = el("span", "capability-badge");
+  capabilityBadge.textContent = "Seeded · reproducible · continuous";
+  comparisonHeader.append(comparisonTitle, capabilityBadge);
+  container.appendChild(comparisonHeader);
 
-  const rate = rangeRow("Speaking rate", 0.5, 2.0, 0.05, 1.0);
-  const pitch = rangeRow("Pitch (future — not applied in M1)", -1, 1, 0.05, 0);
-  const energy = rangeRow("Energy", 0.5, 2.0, 0.05, 1.0);
-  controls.append(rate.wrap, pitch.wrap, energy.wrap);
-  container.appendChild(controls);
+  const mutationBar = el("div", "mutation-bar");
+  const mutation = rangeRow("Mutation strength", 0.02, 0.75, 0.01, 0.25);
+  const randomButton = el("button", "secondary");
+  randomButton.textContent = "New random pair";
+  const mutateAButton = el("button", "secondary");
+  mutateAButton.textContent = "Mutate from A";
+  const mutateBButton = el("button", "secondary");
+  mutateBButton.textContent = "Mutate from B";
+  const mutationActions = el("div", "mutation-actions");
+  mutationActions.append(randomButton, mutateAButton, mutateBButton);
+  mutationBar.append(mutation.wrap, mutationActions);
+  container.appendChild(mutationBar);
 
-  const row = el("div", "row");
-  const generateBtn = el("button");
-  generateBtn.textContent = "Generate";
-  const stopBtn = el("button", "secondary");
-  stopBtn.textContent = "Stop";
-  stopBtn.disabled = true;
-  row.append(generateBtn, stopBtn);
-  container.appendChild(row);
+  let activeSlot: ComparisonSlot | null = null;
+  let streaming = false;
+  let liveUpdateTimer: number | undefined;
+  let slotA: ComparisonSlot;
+  let slotB: ComparisonSlot;
 
-  const statusBox = el("div", "status");
-  const statusLine = el("div");
-  statusLine.innerHTML = 'Status: <span class="disconnected">Idle</span>';
-  const statusSpan = statusLine.querySelector("span")!;
-  const metricsBox = el("div", "metrics");
-  metricsBox.textContent = "TTFA: —\nRTF: —";
-  const note = el("div", "note");
-  note.textContent =
-    "Pitch/warmth/breathiness sliders are reserved for future models. Speaking rate and energy map to F5-TTS speed/loudness in M1.";
-  statusBox.append(statusLine, metricsBox, note);
-  container.appendChild(statusBox);
-
-  root.appendChild(container);
+  const connection = el("span", "connection");
+  connection.innerHTML =
+    'Backend: <strong class="disconnected">connecting…</strong>';
+  const statusSpan = connection.querySelector("strong")!;
+  const stopButton = el("button", "secondary");
+  stopButton.textContent = "Stop playback";
+  stopButton.disabled = true;
 
   const client = new TTSWebSocketClient(
     WS_URL,
     (status) => {
+      streaming = status === "Streaming";
       statusSpan.textContent = status;
       statusSpan.className =
         status === "Connected" || status === "Ready" || status === "Streaming"
@@ -101,46 +270,151 @@ export function mountApp(root: HTMLElement): void {
           : status === "Disconnected"
             ? "disconnected"
             : "";
-      stopBtn.disabled = !["Streaming"].includes(status);
-      generateBtn.disabled = status === "Streaming";
+      stopButton.disabled = !streaming;
+      slotA.generateButton.disabled = streaming;
+      slotB.generateButton.disabled = streaming;
     },
     (metrics) => {
+      if (!activeSlot) return;
       const ttfa =
         (metrics.client_ttfa_ms as number | undefined) ??
         (metrics.ttfa_server_ms as number | undefined);
       const rtf = metrics.rtf as number | undefined;
-      metricsBox.textContent = [
-        `TTFA: ${ttfa != null ? `${Math.round(ttfa)} ms` : "—"}`,
-        `RTF: ${rtf != null ? rtf.toFixed(3) : "—"}`,
-        `Chunks: ${metrics.chunk_count ?? "—"}`,
-        `Audio: ${metrics.total_audio_seconds != null ? Number(metrics.total_audio_seconds).toFixed(2) + "s" : "—"}`,
-      ].join("\n");
-      generateBtn.disabled = false;
-      stopBtn.disabled = true;
+      activeSlot.metrics.textContent = [
+        `TTFA ${ttfa != null ? `${Math.round(ttfa)} ms` : "—"}`,
+        `RTF ${rtf != null ? rtf.toFixed(3) : "—"}`,
+        metrics.total_audio_seconds != null
+          ? `${Number(metrics.total_audio_seconds).toFixed(1)}s audio`
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      slotA.generateButton.disabled = false;
+      slotB.generateButton.disabled = false;
+      stopButton.disabled = true;
+    },
+    (version) => {
+      if (activeSlot) {
+        activeSlot.metrics.textContent =
+          `Rate change accepted · version ${version} · next phrase`;
+      }
     },
   );
 
-  generateBtn.addEventListener("click", async () => {
+  const queueLiveVoiceUpdate = (slot: ComparisonSlot) => {
+    if (activeSlot !== slot) return;
+    client.updateOutput({
+      energy: slot.genome.energy,
+      warmth: slot.genome.warmth,
+      brightness: slot.genome.brightness,
+      presence: slot.genome.presence,
+    });
+    if (!streaming) return;
+    window.clearTimeout(liveUpdateTimer);
+    slot.metrics.textContent = "Output identity changing smoothly…";
+    liveUpdateTimer = window.setTimeout(() => {
+      client.updateVoice({
+        speaking_rate: slot.settings.speaking_rate,
+      });
+    }, 120);
+  };
+
+  const generateSlot = async (slot: ComparisonSlot) => {
     const text = textarea.value.trim();
-    if (!text) return;
-    metricsBox.textContent = "TTFA: measuring...\nRTF: —";
+    if (!text) {
+      textarea.focus();
+      return;
+    }
+    activeSlot = slot;
+    slot.metrics.textContent = "Generating…";
     try {
-      await client.generate(text, {
-        language: "English",
-        speaker: speakerSelect.value,
-        speaking_rate: Number(rate.input.value),
-        pitch: Number(pitch.input.value),
-        energy: Number(energy.input.value),
+      await client.generate(text, slot.settings, {
+        energy: slot.genome.energy,
+        warmth: slot.genome.warmth,
+        brightness: slot.genome.brightness,
+        presence: slot.genome.presence,
       });
     } catch (err) {
-      statusSpan.textContent = `Error: ${(err as Error).message}`;
+      slot.metrics.textContent = `Error: ${(err as Error).message}`;
     }
-  });
+  };
 
-  stopBtn.addEventListener("click", () => client.stop());
+  const savedGenomeRaw = localStorage.getItem("neural-tts.saved-genome");
+  let initialA = FALLBACK_GENOMES[0];
+  if (savedGenomeRaw) {
+    try {
+      initialA = JSON.parse(savedGenomeRaw) as VoiceGenome;
+    } catch {
+      localStorage.removeItem("neural-tts.saved-genome");
+    }
+  }
 
+  slotA = buildSlot(
+    "A",
+    initialA,
+    () => void generateSlot(slotA),
+    () => {
+      localStorage.setItem("neural-tts.saved-genome", JSON.stringify(slotA.genome));
+      slotA.metrics.textContent = "Saved as your current voice identity";
+    },
+    queueLiveVoiceUpdate,
+  );
+  slotB = buildSlot(
+    "B",
+    FALLBACK_GENOMES[1],
+    () => void generateSlot(slotB),
+    () => {
+      localStorage.setItem("neural-tts.saved-genome", JSON.stringify(slotB.genome));
+      slotB.metrics.textContent = "Saved as your current voice identity";
+    },
+    queueLiveVoiceUpdate,
+  );
+  const compareGrid = el("div", "compare-grid");
+  compareGrid.append(slotA.card, slotB.card);
+  container.appendChild(compareGrid);
+
+  const replaceCandidates = async (parent?: VoiceGenome) => {
+    mutationActions.querySelectorAll("button").forEach((button) => {
+      button.disabled = true;
+    });
+    try {
+      const candidates = await generateVoiceCandidates(
+        Date.now(),
+        Number(mutation.input.value),
+        parent,
+      );
+      slotA.applyGenome(candidates[0]);
+      slotB.applyGenome(candidates[1]);
+    } catch (error) {
+      statusSpan.textContent = `candidate error: ${(error as Error).message}`;
+      statusSpan.className = "disconnected";
+    } finally {
+      mutationActions.querySelectorAll("button").forEach((button) => {
+        button.disabled = false;
+      });
+    }
+  };
+  randomButton.addEventListener("click", () => void replaceCandidates());
+  mutateAButton.addEventListener("click", () =>
+    void replaceCandidates(slotA.genome),
+  );
+  mutateBButton.addEventListener("click", () =>
+    void replaceCandidates(slotB.genome),
+  );
+
+  const transport = el("div", "transport");
+  transport.append(connection, stopButton);
+  container.appendChild(transport);
+
+  const note = el("div", "note");
+  note.textContent =
+    "Phase 1 shapes one configured F5-TTS reference using smooth output EQ and gain. It creates reproducible tonal identities, not yet independent neural speaker embeddings.";
+  container.appendChild(note);
+  root.appendChild(container);
+
+  stopButton.addEventListener("click", () => client.stop());
   void client.connect().catch(() => {
-    statusSpan.textContent = "Backend offline — start server on :8000";
+    statusSpan.textContent = "offline — start server on :8000";
     statusSpan.className = "disconnected";
   });
 }
