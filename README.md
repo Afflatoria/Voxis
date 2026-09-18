@@ -42,7 +42,7 @@ Tested dev GPU: **NVIDIA RTX 2000 Ada (8 GB)**.
 ### 1. Clone and create virtual environment
 
 ```powershell
-cd voice-research
+cd voxis
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e ".[dev,f5tts]"
@@ -90,7 +90,7 @@ npm run dev
 **Terminal 1 — backend:**
 
 ```powershell
-cd voice-research
+cd voxis
 .\.venv\Scripts\Activate.ps1
 $env:PYTHONPATH = "src"
 python -m neural_tts.main
