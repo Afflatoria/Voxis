@@ -1,7 +1,7 @@
 /** WebSocket client for /v1/stream. */
 
 import { StreamPlayer } from "./streamPlayer";
-import type { VoiceEffects } from "./voiceOutput";
+import type { SpectrumFrame, VoiceEffects } from "./voiceOutput";
 
 export interface VoiceSettings {
   language: string;
@@ -161,5 +161,9 @@ export class TTSWebSocketClient {
         pitchSemitones ?? 0,
       );
     }
+  }
+
+  readSpectrum(): SpectrumFrame | null {
+    return this.player.readSpectrum();
   }
 }

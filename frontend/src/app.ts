@@ -3,6 +3,7 @@ import {
   generateVoiceCandidates,
   type VoiceGenome,
 } from "./voiceGenome";
+import { SpectrogramRenderer } from "./spectrogram";
 import { TTSWebSocketClient, type VoiceSettings } from "./wsClient";
 
 const WS_URL =
@@ -439,6 +440,33 @@ export function mountApp(root: HTMLElement): void {
   const compareGrid = el("div", "compare-grid");
   compareGrid.append(slotA.card, slotB.card);
   container.appendChild(compareGrid);
+
+  const spectrumPanel = el("section", "spectrum-panel");
+  const spectrumHeader = el("div", "spectrum-header");
+  const spectrumHeading = el("h2");
+  spectrumHeading.textContent = "Output spectrogram";
+  const spectrumDescription = el("span");
+  spectrumDescription.textContent = "Post-processing · 70 Hz–10 kHz";
+  spectrumHeader.append(spectrumHeading, spectrumDescription);
+  const spectrumLayout = el("div", "spectrum-layout");
+  const frequencyLabels = el("div", "frequency-labels");
+  frequencyLabels.innerHTML =
+    "<span>10 kHz</span><span>2 kHz</span><span>500 Hz</span><span>70 Hz</span>";
+  const spectrumCanvas = el("canvas");
+  spectrumCanvas.width = 960;
+  spectrumCanvas.height = 220;
+  spectrumCanvas.setAttribute(
+    "aria-label",
+    "Scrolling spectrogram of the processed voice output",
+  );
+  spectrumLayout.append(frequencyLabels, spectrumCanvas);
+  spectrumPanel.append(spectrumHeader, spectrumLayout);
+  container.appendChild(spectrumPanel);
+  const spectrogram = new SpectrogramRenderer(
+    spectrumCanvas,
+    () => client.readSpectrum(),
+  );
+  spectrogram.start();
 
   const replaceCandidates = async (parent?: VoiceGenome) => {
     mutationActions.querySelectorAll("button").forEach((button) => {

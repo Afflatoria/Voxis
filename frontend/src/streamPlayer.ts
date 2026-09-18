@@ -4,6 +4,7 @@ import { decodeAudioFrame, int16ToFloat32 } from "./audioCodec";
 import {
   NEUTRAL_VOICE_EFFECTS,
   VoiceOutput,
+  type SpectrumFrame,
   type VoiceEffects,
 } from "./voiceOutput";
 
@@ -144,5 +145,9 @@ export class StreamPlayer {
       rate: this.targetRate,
       pitchSemitones: this.targetPitchSemitones,
     });
+  }
+
+  readSpectrum(): SpectrumFrame | null {
+    return this.voiceOutput?.readSpectrum() ?? null;
   }
 }

@@ -133,6 +133,9 @@ f5-tts_infer-gradio
 4. Choose a candidate and click **Mutate from A/B** to generate two nearby,
    reproducible alternatives.
 5. Save the preferred identity in browser storage and continue refining it.
+6. Use the scrolling **Output spectrogram** to inspect the processed signal
+   from 70 Hz to 10 kHz. It displays audio after pitch, formant, EQ, gain, and
+   limiting have been applied.
 
 Phase 1 shapes the configured `F5TTS_REF_WAV` with a real-time browser output
 chain. These genomes are reproducible tonal profiles; independent learned

@@ -22,6 +22,12 @@ export const NEUTRAL_VOICE_EFFECTS: VoiceEffects = {
   presence: 0,
 };
 
+export interface SpectrumFrame {
+  magnitudes: Uint8Array;
+  sampleRate: number;
+  fftSize: number;
+}
+
 export class VoiceOutput {
   readonly input: GainNode;
   private readonly formantCuts: BiquadFilterNode[] = [];
@@ -31,6 +37,8 @@ export class VoiceOutput {
   private readonly brightnessFilter: BiquadFilterNode;
   private readonly outputGain: GainNode;
   private readonly limiter: DynamicsCompressorNode;
+  private readonly analyser: AnalyserNode;
+  private readonly frequencyData: Uint8Array<ArrayBuffer>;
   private readonly context: AudioContext;
   private vocalSize = 0;
   private formantStrength = 0.6;
@@ -77,6 +85,12 @@ export class VoiceOutput {
     this.limiter.ratio.value = 8;
     this.limiter.attack.value = 0.004;
     this.limiter.release.value = 0.08;
+    this.analyser = context.createAnalyser();
+    this.analyser.fftSize = 2048;
+    this.analyser.smoothingTimeConstant = 0.72;
+    this.analyser.minDecibels = -95;
+    this.analyser.maxDecibels = -20;
+    this.frequencyData = new Uint8Array(this.analyser.frequencyBinCount);
 
     this.outputGain.gain.value = this.clampEnergy(initialEffects.energy);
     this.warmthFilter.gain.value = this.clampUnit(initialEffects.warmth) * 9;
@@ -96,6 +110,7 @@ export class VoiceOutput {
       .connect(this.brightnessFilter)
       .connect(this.outputGain)
       .connect(this.limiter)
+      .connect(this.analyser)
       .connect(context.destination);
     this.updateFormants(0.01);
   }
@@ -159,6 +174,16 @@ export class VoiceOutput {
     this.brightnessFilter.disconnect();
     this.outputGain.disconnect();
     this.limiter.disconnect();
+    this.analyser.disconnect();
+  }
+
+  readSpectrum(): SpectrumFrame {
+    this.analyser.getByteFrequencyData(this.frequencyData);
+    return {
+      magnitudes: this.frequencyData,
+      sampleRate: this.context.sampleRate,
+      fftSize: this.analyser.fftSize,
+    };
   }
 
   private clampEnergy(value: number): number {
