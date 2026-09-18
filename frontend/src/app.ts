@@ -54,6 +54,7 @@ interface ComparisonSlot {
   heading: HTMLElement;
   genomeId: HTMLElement;
   rate: ReturnType<typeof rangeRow>;
+  pitch: ReturnType<typeof rangeRow>;
   energy: ReturnType<typeof rangeRow>;
   warmth: ReturnType<typeof rangeRow>;
   brightness: ReturnType<typeof rangeRow>;
@@ -104,6 +105,13 @@ function buildSlot(
     0.01,
     initialGenome.energy,
   );
+  const pitch = rangeRow(
+    "Pitch (semitones)",
+    -6,
+    6,
+    0.1,
+    initialGenome.pitch_semitones,
+  );
   const warmth = rangeRow("Warmth", -1, 1, 0.01, initialGenome.warmth);
   const brightness = rangeRow(
     "Brightness",
@@ -139,6 +147,7 @@ function buildSlot(
     heading,
     genomeId: subheading,
     rate,
+    pitch,
     energy,
     warmth,
     brightness,
@@ -155,6 +164,7 @@ function buildSlot(
     heading.textContent = genome.name;
     subheading.textContent = genome.id;
     setRangeValue(rate, genome.speaking_rate);
+    setRangeValue(pitch, genome.pitch_semitones);
     setRangeValue(energy, genome.energy);
     setRangeValue(warmth, genome.warmth);
     setRangeValue(brightness, genome.brightness);
@@ -179,6 +189,11 @@ function buildSlot(
     slot.settings.energy = Number(energy.input.value);
     onVoiceChange(slot);
   });
+  pitch.input.addEventListener("input", () => {
+    markCustom();
+    slot.genome.pitch_semitones = Number(pitch.input.value);
+    onVoiceChange(slot);
+  });
   for (const [row, key] of [
     [warmth, "warmth"],
     [brightness, "brightness"],
@@ -194,6 +209,7 @@ function buildSlot(
   card.append(
     header,
     rate.wrap,
+    pitch.wrap,
     energy.wrap,
     warmth.wrap,
     brightness.wrap,
@@ -228,7 +244,7 @@ export function mountApp(root: HTMLElement): void {
   const comparisonTitle = el("h2");
   comparisonTitle.textContent = "Candidate generation";
   const capabilityBadge = el("span", "capability-badge");
-  capabilityBadge.textContent = "Seeded · reproducible · continuous";
+  capabilityBadge.textContent = "Pitch + rate now waveform processed";
   comparisonHeader.append(comparisonTitle, capabilityBadge);
   container.appendChild(comparisonHeader);
 
@@ -247,7 +263,6 @@ export function mountApp(root: HTMLElement): void {
 
   let activeSlot: ComparisonSlot | null = null;
   let streaming = false;
-  let liveUpdateTimer: number | undefined;
   let slotA: ComparisonSlot;
   let slotB: ComparisonSlot;
 
@@ -296,7 +311,7 @@ export function mountApp(root: HTMLElement): void {
     (version) => {
       if (activeSlot) {
         activeSlot.metrics.textContent =
-          `Rate change accepted · version ${version} · next phrase`;
+          `Backend voice update accepted · version ${version}`;
       }
     },
   );
@@ -308,15 +323,12 @@ export function mountApp(root: HTMLElement): void {
       warmth: slot.genome.warmth,
       brightness: slot.genome.brightness,
       presence: slot.genome.presence,
+      speakingRate: slot.genome.speaking_rate,
+      pitchSemitones: slot.genome.pitch_semitones,
     });
-    if (!streaming) return;
-    window.clearTimeout(liveUpdateTimer);
-    slot.metrics.textContent = "Output identity changing smoothly…";
-    liveUpdateTimer = window.setTimeout(() => {
-      client.updateVoice({
-        speaking_rate: slot.settings.speaking_rate,
-      });
-    }, 120);
+    slot.metrics.textContent = streaming
+      ? "Waveform transformation changing smoothly…"
+      : "Identity updated · ready to audition";
   };
 
   const generateSlot = async (slot: ComparisonSlot) => {
@@ -333,6 +345,8 @@ export function mountApp(root: HTMLElement): void {
         warmth: slot.genome.warmth,
         brightness: slot.genome.brightness,
         presence: slot.genome.presence,
+        speakingRate: slot.genome.speaking_rate,
+        pitchSemitones: slot.genome.pitch_semitones,
       });
     } catch (err) {
       slot.metrics.textContent = `Error: ${(err as Error).message}`;
@@ -343,7 +357,10 @@ export function mountApp(root: HTMLElement): void {
   let initialA = FALLBACK_GENOMES[0];
   if (savedGenomeRaw) {
     try {
-      initialA = JSON.parse(savedGenomeRaw) as VoiceGenome;
+      initialA = {
+        ...FALLBACK_GENOMES[0],
+        ...(JSON.parse(savedGenomeRaw) as Partial<VoiceGenome>),
+      };
     } catch {
       localStorage.removeItem("neural-tts.saved-genome");
     }
@@ -408,7 +425,7 @@ export function mountApp(root: HTMLElement): void {
 
   const note = el("div", "note");
   note.textContent =
-    "Phase 1 shapes one configured F5-TTS reference using smooth output EQ and gain. It creates reproducible tonal identities, not yet independent neural speaker embeddings.";
+    "Pitch and rate are processed continuously in the browser using buffered resampling and granular pitch compensation. Extreme values may reveal prototype artifacts.";
   container.appendChild(note);
   root.appendChild(container);
 

@@ -19,11 +19,12 @@ export interface PlaybackMetrics {
 export class StreamPlayer {
   private audioContext: AudioContext | null = null;
   private voiceOutput: VoiceOutput | null = null;
+  private streamProcessor: AudioWorkletNode | null = null;
+  private initialization: Promise<AudioContext> | null = null;
   private targetEffects: VoiceEffects = { ...NEUTRAL_VOICE_EFFECTS };
-  private nextStartTime = 0;
-  private readonly bufferSeconds: number;
+  private targetRate = 1;
+  private targetPitchSemitones = 0;
   private started = false;
-  private sampleRate = 24000;
   private metrics: PlaybackMetrics = {
     requestTime: null,
     firstAudioReceived: null,
@@ -33,9 +34,7 @@ export class StreamPlayer {
     totalAudioSeconds: 0,
   };
 
-  constructor(bufferMs = 120) {
-    this.bufferSeconds = bufferMs / 1000;
-  }
+  constructor(_bufferMs = 120) {}
 
   markRequestSent(): void {
     this.metrics.requestTime = performance.now();
@@ -46,24 +45,41 @@ export class StreamPlayer {
   }
 
   async ensureContext(): Promise<AudioContext> {
-    if (!this.audioContext) {
-      this.audioContext = new AudioContext();
-      this.voiceOutput = new VoiceOutput(this.audioContext, this.targetEffects);
+    if (!this.initialization) {
+      this.initialization = this.initializeAudio();
     }
-    if (this.audioContext.state === "suspended") {
-      await this.audioContext.resume();
+    return this.initialization;
+  }
+
+  private async initializeAudio(): Promise<AudioContext> {
+    const context = new AudioContext();
+    await context.audioWorklet.addModule("/voice-stream-processor.js");
+    this.audioContext = context;
+    this.voiceOutput = new VoiceOutput(context, this.targetEffects);
+    this.streamProcessor = new AudioWorkletNode(
+      context,
+      "voice-stream-processor",
+      { outputChannelCount: [1] },
+    );
+    this.streamProcessor.connect(this.voiceOutput.input);
+    this.sendPlaybackParameters();
+    if (context.state === "suspended") {
+      await context.resume();
     }
-    return this.audioContext;
+    return context;
   }
 
   reset(): void {
+    this.streamProcessor?.port.postMessage({ type: "reset" });
+    this.streamProcessor?.disconnect();
+    this.streamProcessor = null;
     this.voiceOutput?.disconnect();
     this.voiceOutput = null;
     if (this.audioContext) {
       void this.audioContext.close();
       this.audioContext = null;
     }
-    this.nextStartTime = 0;
+    this.initialization = null;
     this.started = false;
     this.metrics = {
       requestTime: this.metrics.requestTime,
@@ -76,27 +92,21 @@ export class StreamPlayer {
   }
 
   async enqueue(arrayBuffer: ArrayBuffer): Promise<void> {
-    const ctx = await this.ensureContext();
+    await this.ensureContext();
     const { sampleRate, pcm } = decodeAudioFrame(arrayBuffer);
-    this.sampleRate = sampleRate;
 
     if (this.metrics.firstAudioReceived === null) {
       this.metrics.firstAudioReceived = performance.now();
     }
 
     const floats = int16ToFloat32(pcm);
-    const audioBuffer = ctx.createBuffer(1, floats.length, sampleRate);
-    // Web Audio requires an ArrayBuffer-backed view; decoded data is typed as
-    // ArrayBufferLike by newer TypeScript releases.
-    audioBuffer.copyToChannel(new Float32Array(floats), 0);
+    const transferable = new Float32Array(floats);
+    this.streamProcessor!.port.postMessage(
+      { type: "chunk", sampleRate, samples: transferable },
+      [transferable.buffer],
+    );
 
-    const source = ctx.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(this.voiceOutput!.input);
-
-    const now = ctx.currentTime;
     if (!this.started) {
-      this.nextStartTime = now + this.bufferSeconds;
       this.started = true;
       this.metrics.playbackStarted = performance.now();
       if (this.metrics.requestTime !== null) {
@@ -105,12 +115,8 @@ export class StreamPlayer {
       }
     }
 
-    const startAt = Math.max(this.nextStartTime, now + 0.01);
-    source.start(startAt);
-    this.nextStartTime = startAt + audioBuffer.duration;
-
     this.metrics.chunkCount += 1;
-    this.metrics.totalAudioSeconds += audioBuffer.duration;
+    this.metrics.totalAudioSeconds += floats.length / sampleRate;
   }
 
   stop(): void {
@@ -124,5 +130,19 @@ export class StreamPlayer {
   setVoiceEffects(effects: Partial<VoiceEffects>): void {
     this.targetEffects = { ...this.targetEffects, ...effects };
     this.voiceOutput?.setEffects(effects);
+  }
+
+  setPlaybackTransform(rate: number, pitchSemitones: number): void {
+    this.targetRate = Math.min(1.5, Math.max(0.65, rate));
+    this.targetPitchSemitones = Math.min(8, Math.max(-8, pitchSemitones));
+    this.sendPlaybackParameters();
+  }
+
+  private sendPlaybackParameters(): void {
+    this.streamProcessor?.port.postMessage({
+      type: "parameters",
+      rate: this.targetRate,
+      pitchSemitones: this.targetPitchSemitones,
+    });
   }
 }

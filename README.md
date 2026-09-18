@@ -127,8 +127,8 @@ f5-tts_infer-gradio
 
 1. Enter text in the textarea.
 2. Audition Voice A and Voice B using the same script.
-3. Adjust **Energy**, **Warmth**, **Brightness**, and **Presence** continuously
-   while audio plays. Speaking rate updates at short phrase boundaries.
+3. Adjust **Speaking rate**, **Pitch**, **Energy**, **Warmth**, **Brightness**,
+   and **Presence** continuously while audio plays.
 4. Choose a candidate and click **Mutate from A/B** to generate two nearby,
    reproducible alternatives.
 5. Save the preferred identity in browser storage and continue refining it.
@@ -216,10 +216,12 @@ Tests use the **mock backend** by default — no GPU model required.
 
 | Control | M1 status |
 |---------|-----------|
-| `speaking_rate` | F5-TTS `speed` parameter; live updates apply at the next segment |
+| `speaking_rate` | Real-time waveform resampling with inverse pitch compensation in the browser |
 | `energy` | Real-time browser output gain with a smooth 80 ms transition |
+| `pitch` | Real-time granular waveform pitch shift in the browser prototype |
+| `warmth`, `brightness`, `presence` | Smooth browser EQ filters |
 | `speaker` | Uses `F5TTS_REF_WAV` reference voice |
-| `language`, `accent`, `pitch`, `warmth`, `breathiness`, `roughness`, `expressiveness` | **Schema only — not applied** |
+| `language`, `accent`, `breathiness`, `roughness`, `expressiveness` | **Schema only — not applied** |
 
 The UI/API expose future controls without faking backend support.
 
@@ -228,8 +230,8 @@ The UI/API expose future controls without faking backend support.
 - **Single GPU job at a time** — concurrent sessions serialize via a lock.
 - **Boundary-based mid-stream changes** — updates affect the next short text segment, not audio already playing.
 - **Continuous energy changes** — streamed PCM passes through a browser output-processing layer and gain changes are smoothly ramped without regeneration.
+- **Prototype pitch/rate DSP** — granular pitch compensation enables continuous changes, but extreme values can introduce modulation artifacts.
 - **No crossfade yet** — adjacent segments can have an audible transition when settings differ significantly.
-- **Bounded look-ahead** — the server keeps approximately 750 ms of generated audio ahead of playback.
 - **Chunk streaming, not token streaming** — F5-TTS synthesizes short text segments and yields fixed-size waveform chunks.
 - **8 GB GPU** may require closing other GPU apps.
 - **First inference** includes model load/warmup latency.

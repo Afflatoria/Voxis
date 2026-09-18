@@ -13,6 +13,11 @@ export interface VoiceSettings {
   accent_strength?: number;
 }
 
+export interface RealtimeVoiceEffects extends Partial<VoiceEffects> {
+  speakingRate?: number;
+  pitchSemitones?: number;
+}
+
 export type StatusHandler = (status: string) => void;
 export type MetricsHandler = (metrics: Record<string, unknown>) => void;
 export type VoiceUpdateHandler = (version: number) => void;
@@ -98,13 +103,18 @@ export class TTSWebSocketClient {
   async generate(
     text: string,
     voice: VoiceSettings,
-    effects: Partial<VoiceEffects> = {},
+    effects: RealtimeVoiceEffects = {},
   ): Promise<void> {
     await this.connect();
     this.player.reset();
-    this.player.setVoiceEffects({ ...effects, energy: voice.energy });
+    const { speakingRate, pitchSemitones, ...toneEffects } = effects;
+    this.player.setVoiceEffects({ ...toneEffects, energy: voice.energy });
+    this.player.setPlaybackTransform(
+      speakingRate ?? voice.speaking_rate,
+      pitchSemitones ?? 0,
+    );
     this.player.markRequestSent();
-    const backendVoice = { ...voice, energy: 1 };
+    const backendVoice = { ...voice, energy: 1, speaking_rate: 1, pitch: 0 };
     this.ws!.send(
       JSON.stringify({
         type: "start",
@@ -127,10 +137,14 @@ export class TTSWebSocketClient {
     if (voice.energy !== undefined) {
       this.player.setEnergy(voice.energy);
     }
+    if (voice.speaking_rate !== undefined) {
+      this.player.setPlaybackTransform(voice.speaking_rate, 0);
+    }
 
     if (this.ws?.readyState !== WebSocket.OPEN) return;
     const backendVoice = { ...voice };
     delete backendVoice.energy;
+    delete backendVoice.speaking_rate;
     if (Object.keys(backendVoice).length > 0) {
       this.ws.send(
         JSON.stringify({ type: "voice_update", voice: backendVoice }),
@@ -138,7 +152,14 @@ export class TTSWebSocketClient {
     }
   }
 
-  updateOutput(effects: Partial<VoiceEffects>): void {
-    this.player.setVoiceEffects(effects);
+  updateOutput(effects: RealtimeVoiceEffects): void {
+    const { speakingRate, pitchSemitones, ...toneEffects } = effects;
+    this.player.setVoiceEffects(toneEffects);
+    if (speakingRate !== undefined || pitchSemitones !== undefined) {
+      this.player.setPlaybackTransform(
+        speakingRate ?? 1,
+        pitchSemitones ?? 0,
+      );
+    }
   }
 }

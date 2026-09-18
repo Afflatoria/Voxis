@@ -50,6 +50,7 @@ def test_mutations_remain_near_parent_and_inside_bounds():
 
     assert len(candidates) == 4
     assert all(0.75 <= candidate.speaking_rate <= 1.3 for candidate in candidates)
+    assert all(-6 <= candidate.pitch_semitones <= 6 for candidate in candidates)
     assert all(-1 <= candidate.warmth <= 1 for candidate in candidates)
     assert all(abs(candidate.warmth - parent.warmth) < 0.4 for candidate in candidates)
 
