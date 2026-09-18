@@ -16,6 +16,8 @@ class VoiceGenome(BaseModel):
     speaking_rate: float = Field(default=1.0, ge=0.75, le=1.3)
     pitch_semitones: float = Field(default=0.0, ge=-6.0, le=6.0)
     energy: float = Field(default=1.0, ge=0.6, le=1.4)
+    vocal_size: float = Field(default=0.0, ge=-1.0, le=1.0)
+    formant_strength: float = Field(default=0.6, ge=0.0, le=1.0)
     warmth: float = Field(default=0.0, ge=-1.0, le=1.0)
     brightness: float = Field(default=0.0, ge=-1.0, le=1.0)
     presence: float = Field(default=0.0, ge=-1.0, le=1.0)
@@ -43,6 +45,8 @@ def generate_candidates(request: CandidateRequest) -> list[VoiceGenome]:
             rate = rng.uniform(0.84, 1.16)
             pitch = rng.uniform(-3.5, 3.5)
             energy = rng.uniform(0.78, 1.22)
+            vocal_size = rng.uniform(-0.75, 0.75)
+            formant_strength = rng.uniform(0.35, 0.85)
             warmth = rng.uniform(-0.8, 0.8)
             brightness = rng.uniform(-0.8, 0.8)
             presence = rng.uniform(-0.7, 0.7)
@@ -52,6 +56,10 @@ def generate_candidates(request: CandidateRequest) -> list[VoiceGenome]:
             rate = parent.speaking_rate + rng.gauss(0, 0.16 * strength)
             pitch = parent.pitch_semitones + rng.gauss(0, 3.0 * strength)
             energy = parent.energy + rng.gauss(0, 0.2 * strength)
+            vocal_size = parent.vocal_size + rng.gauss(0, strength)
+            formant_strength = parent.formant_strength + rng.gauss(
+                0, 0.35 * strength
+            )
             warmth = parent.warmth + rng.gauss(0, strength)
             brightness = parent.brightness + rng.gauss(0, strength)
             presence = parent.presence + rng.gauss(0, strength)
@@ -64,6 +72,8 @@ def generate_candidates(request: CandidateRequest) -> list[VoiceGenome]:
                 speaking_rate=_clamp(rate, 0.75, 1.3),
                 pitch_semitones=_clamp(pitch, -6.0, 6.0),
                 energy=_clamp(energy, 0.6, 1.4),
+                vocal_size=_clamp(vocal_size, -1.0, 1.0),
+                formant_strength=_clamp(formant_strength, 0.0, 1.0),
                 warmth=_clamp(warmth, -1.0, 1.0),
                 brightness=_clamp(brightness, -1.0, 1.0),
                 presence=_clamp(presence, -1.0, 1.0),

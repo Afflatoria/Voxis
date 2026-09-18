@@ -6,6 +6,8 @@ export interface VoiceGenome extends VoiceEffects {
   seed: number;
   speaking_rate: number;
   pitch_semitones: number;
+  vocal_size: number;
+  formant_strength: number;
 }
 
 const API_URL =
@@ -20,6 +22,8 @@ export const FALLBACK_GENOMES: [VoiceGenome, VoiceGenome] = [
     speaking_rate: 0.94,
     pitch_semitones: -1.5,
     energy: 1,
+    vocal_size: 0.42,
+    formant_strength: 0.68,
     warmth: 0.45,
     brightness: -0.2,
     presence: 0.15,
@@ -31,6 +35,8 @@ export const FALLBACK_GENOMES: [VoiceGenome, VoiceGenome] = [
     speaking_rate: 1.06,
     pitch_semitones: 1.8,
     energy: 0.96,
+    vocal_size: -0.3,
+    formant_strength: 0.62,
     warmth: -0.2,
     brightness: 0.42,
     presence: 0.3,

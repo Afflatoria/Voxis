@@ -56,6 +56,8 @@ interface ComparisonSlot {
   rate: ReturnType<typeof rangeRow>;
   pitch: ReturnType<typeof rangeRow>;
   energy: ReturnType<typeof rangeRow>;
+  vocalSize: ReturnType<typeof rangeRow>;
+  formantStrength: ReturnType<typeof rangeRow>;
   warmth: ReturnType<typeof rangeRow>;
   brightness: ReturnType<typeof rangeRow>;
   presence: ReturnType<typeof rangeRow>;
@@ -70,6 +72,19 @@ function setRangeValue(
 ): void {
   row.input.value = String(value);
   row.output.textContent = value.toFixed(2);
+}
+
+function controlGroup(
+  title: string,
+  ...rows: Array<ReturnType<typeof rangeRow>>
+): HTMLElement {
+  const group = el("div", "control-group");
+  const heading = el("div", "control-group-title");
+  heading.textContent = title;
+  const grid = el("div", "control-grid");
+  grid.append(...rows.map((row) => row.wrap));
+  group.append(heading, grid);
+  return group;
 }
 
 function buildSlot(
@@ -112,6 +127,20 @@ function buildSlot(
     0.1,
     initialGenome.pitch_semitones,
   );
+  const vocalSize = rangeRow(
+    "Vocal size",
+    -1,
+    1,
+    0.01,
+    initialGenome.vocal_size,
+  );
+  const formantStrength = rangeRow(
+    "Formant strength",
+    0,
+    1,
+    0.01,
+    initialGenome.formant_strength,
+  );
   const warmth = rangeRow("Warmth", -1, 1, 0.01, initialGenome.warmth);
   const brightness = rangeRow(
     "Brightness",
@@ -149,6 +178,8 @@ function buildSlot(
     rate,
     pitch,
     energy,
+    vocalSize,
+    formantStrength,
     warmth,
     brightness,
     presence,
@@ -166,6 +197,8 @@ function buildSlot(
     setRangeValue(rate, genome.speaking_rate);
     setRangeValue(pitch, genome.pitch_semitones);
     setRangeValue(energy, genome.energy);
+    setRangeValue(vocalSize, genome.vocal_size);
+    setRangeValue(formantStrength, genome.formant_strength);
     setRangeValue(warmth, genome.warmth);
     setRangeValue(brightness, genome.brightness);
     setRangeValue(presence, genome.presence);
@@ -194,6 +227,16 @@ function buildSlot(
     slot.genome.pitch_semitones = Number(pitch.input.value);
     onVoiceChange(slot);
   });
+  vocalSize.input.addEventListener("input", () => {
+    markCustom();
+    slot.genome.vocal_size = Number(vocalSize.input.value);
+    onVoiceChange(slot);
+  });
+  formantStrength.input.addEventListener("input", () => {
+    markCustom();
+    slot.genome.formant_strength = Number(formantStrength.input.value);
+    onVoiceChange(slot);
+  });
   for (const [row, key] of [
     [warmth, "warmth"],
     [brightness, "brightness"],
@@ -208,12 +251,15 @@ function buildSlot(
 
   card.append(
     header,
-    rate.wrap,
-    pitch.wrap,
-    energy.wrap,
-    warmth.wrap,
-    brightness.wrap,
-    presence.wrap,
+    controlGroup("Delivery", rate, pitch, energy),
+    controlGroup(
+      "Identity shaping",
+      vocalSize,
+      formantStrength,
+      warmth,
+      brightness,
+      presence,
+    ),
     actions,
     metrics,
   );
@@ -229,7 +275,7 @@ export function mountApp(root: HTMLElement): void {
   title.textContent = "Evolve a voice of your own.";
   const intro = el("p", "intro");
   intro.textContent =
-    "Audition two artificial identities, choose a parent, then generate nearby mutations until the voice feels right.";
+    "Shape delivery and an approximate vocal tract, choose a parent, then generate nearby mutations until the voice feels right.";
   container.append(eyebrow, title, intro);
 
   const textLabel = el("label", "section-label");
@@ -320,6 +366,8 @@ export function mountApp(root: HTMLElement): void {
     if (activeSlot !== slot) return;
     client.updateOutput({
       energy: slot.genome.energy,
+      vocal_size: slot.genome.vocal_size,
+      formant_strength: slot.genome.formant_strength,
       warmth: slot.genome.warmth,
       brightness: slot.genome.brightness,
       presence: slot.genome.presence,
@@ -342,6 +390,8 @@ export function mountApp(root: HTMLElement): void {
     try {
       await client.generate(text, slot.settings, {
         energy: slot.genome.energy,
+        vocal_size: slot.genome.vocal_size,
+        formant_strength: slot.genome.formant_strength,
         warmth: slot.genome.warmth,
         brightness: slot.genome.brightness,
         presence: slot.genome.presence,
@@ -425,7 +475,7 @@ export function mountApp(root: HTMLElement): void {
 
   const note = el("div", "note");
   note.textContent =
-    "Pitch and rate are processed continuously in the browser using buffered resampling and granular pitch compensation. Extreme values may reveal prototype artifacts.";
+    "Vocal size shifts a three-formant resonance profile; it approximates tract length but is not yet a learned anatomical model. Extreme pitch, rate, or formant settings may reveal prototype artifacts.";
   container.appendChild(note);
   root.appendChild(container);
 

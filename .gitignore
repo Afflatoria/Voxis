@@ -31,6 +31,7 @@ Thumbs.db
 # Logs & benchmarks
 *.log
 benchmark_results/
+timbre_results/
 baseline/outputs/
 
 # Test artifacts
